@@ -19,7 +19,12 @@ final class PageController extends AbstractController
         return $this->render('inicio.html.twig', [
             'contactos' => $contactos
         ]);
-        
     }
-
+    
+    // Ruta ficticia /index solicitada en el ejercicio para las redirecciones de seguridad
+    #[Route('/index', name: 'index_login')]
+    public function index(): Response 
+    {
+        return new Response("<body>Por favor, inicie sesión (Ruta /index)</body>");
+    }
 }

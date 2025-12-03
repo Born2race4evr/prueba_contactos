@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use App\Form\ContactoFormType as ContactoType;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Form\Extension\Core\Type\SubmitType;
 
 final class ContactoController extends AbstractController
 {
@@ -22,70 +23,86 @@ final class ContactoController extends AbstractController
     ];
 
     #[Route('/contacto/nuevo', name: 'nuevo')]
-    public function nuevo(ManagerRegistry $doctrine, Request $request) {
+    public function nuevo(ManagerRegistry $doctrine, Request $request): Response 
+    {
+        // 1. Comprobar seguridad
+        if (!$this->getUser()) {
+            return $this->redirect('/index');
+        }
+
         $contacto = new Contacto();
         $formulario = $this->createForm(ContactoType::class, $contacto);
+        
+        // Añadimos solo el botón de guardar para el nuevo contacto
+        $formulario->add('save', SubmitType::class, ['label' => 'Insertar Contacto']);
+        
         $formulario->handleRequest($request);
 
         if ($formulario->isSubmitted() && $formulario->isValid()) {
             $contacto = $formulario->getData();
-            
             $entityManager = $doctrine->getManager();
             $entityManager->persist($contacto);
             $entityManager->flush();
-            return $this->redirectToRoute('inicio', ["codigo" => $contacto->getId()]);
-        }
-        return $this->render('nuevo.html.twig', array(
-            'formulario' => $formulario->createView()
-        ));
-    }
-    
-    #[Route('/contacto/insertar', name: 'insertar_contacto')]
-    public function insertar(ManagerRegistry $doctrine)
-    {
-        $entityManager = $doctrine->getManager();
-        foreach($this->contactos as $c){
-            $contacto = new Contacto();
-            $contacto->setNombre($c["nombre"]);
-            $contacto->setTelefono($c["telefono"]);
-            $contacto->setEmail($c["email"]);
-            $entityManager->persist($contacto);
+            return $this->redirectToRoute('inicio');
         }
 
-        try
-        {
-            //Sólo se necesita realizar flush una vez y confirmará todas las operaciones pendientes
-            $entityManager->flush();
-            return new Response("Contactos insertados");
-        } catch (\Exception $e) {
-            return new Response("Error insertando objetos");
-        }
+        return $this->render('nuevo.html.twig', [
+            'formulario' => $formulario->createView()
+        ]);
     }
 
     #[Route('/contacto/editar/{codigo}', name: 'editar', requirements:["codigo"=>"\d+"])]
-    public function editar(ManagerRegistry $doctrine, Request $request, int $codigo) {
+    public function editar(ManagerRegistry $doctrine, Request $request, int $codigo): Response 
+    {
+        // 1. Comprobar seguridad
+        if (!$this->getUser()) {
+            return $this->redirect('/index');
+        }
+
         $repositorio = $doctrine->getRepository(Contacto::class);
-        //En este caso, los datos los obtenemos del repositorio de contactos
         $contacto = $repositorio->find($codigo);
-        if ($contacto){
-            $formulario = $this->createForm(ContactoType::class, $contacto);
-            $formulario->handleRequest($request);
-            if ($formulario->isSubmitted() && $formulario->isValid()) {
-                //Esta parte es igual que en la ruta para insertar
+
+        if (!$contacto) {
+            return $this->redirectToRoute('inicio');
+        }
+
+        // Creas el formulario base
+        $formulario = $this->createForm(ContactoType::class, $contacto);
+
+        // 2. LÓGICA DE VARIOS BOTONES:
+        // Añadimos dinámicamente los botones aquí en lugar de en el FormType
+        // para tener control sobre la lógica de borrado/edición en el controlador.
+        $formulario->add('save', SubmitType::class, ['label' => 'Guardar Cambios', 'attr' => ['class' => 'btn-primary']]);
+        $formulario->add('delete', SubmitType::class, ['label' => 'Borrar Contacto', 'attr' => ['class' => 'btn-danger']]);
+
+        $formulario->handleRequest($request);
+
+        if ($formulario->isSubmitted() && $formulario->isValid()) {
+            $entityManager = $doctrine->getManager();
+
+            // 3. Comprobar qué botón se pulsó
+            if ($formulario->get('save')->isClicked()) {
+                // CASO EDITAR
                 $contacto = $formulario->getData();
-                $entityManager = $doctrine->getManager();
                 $entityManager->persist($contacto);
                 $entityManager->flush();
-                return $this->redirectToRoute('ficha_contacto', ["codigo" => $contacto->getId()]);
+                
+                // Redirigir o mostrar mensaje de éxito
+                return $this->redirectToRoute('inicio'); // O volver a 'editar'
+                
+            } elseif ($formulario->get('delete')->isClicked()) {
+                // CASO BORRAR
+                $entityManager->remove($contacto);
+                $entityManager->flush();
+                
+                return $this->redirectToRoute('inicio');
             }
-            return $this->render('nuevo.html.twig', array(
-                'formulario' => $formulario->createView()
-            ));
-        }else{
-            return $this->render('ficha_contacto.html.twig', [
-                'contacto' => NULL
-            ]);
         }
+
+        return $this->render('nuevo.html.twig', [
+            'formulario' => $formulario->createView(),
+            'contacto' => $contacto // Pasamos el contacto por si queremos mostrar detalles fuera del form
+        ]);
     }
 
 

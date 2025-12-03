@@ -1,9 +1,22 @@
 {% extends 'base.html.twig' %}
+
 {% block body %}
-	<h1>Contactos</h1>
-	<h2>Bienvenido a la web de contactos.</h2>
-	<p>Página de inicio</p>
-	{% for contacto in contactos %}
-		 {{ include('partials/datos_contacto.html.twig', {'contacto': contacto})}}
-	{% endfor %}
+    <h1>Contactos</h1>
+    <h2>Bienvenido a la web de contactos.</h2>
+    <p>Página de inicio</p>
+
+    {# Enlace para añadir un contacto nuevo (Requisito funcional) #}
+    <div style="margin-bottom: 20px;">
+        <a href="{{ path('nuevo') }}" class="btn btn-success">Añadir Nuevo Contacto</a>
+    </div>
+
+    {# Contenedor de la lista #}
+    <div class="lista-contactos">
+        {% for contacto in contactos %}
+             {# Pasamos la variable 'contacto' al partial #}
+             {{ include('partials/datos_contacto.html.twig', {'contacto': contacto})}}
+        {% else %}
+             <p>No hay contactos registrados actualmente.</p>
+        {% endfor %}
+    </div>
 {% endblock %}
