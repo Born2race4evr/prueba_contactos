@@ -33,7 +33,7 @@ final class ContactoController extends AbstractController
             $entityManager = $doctrine->getManager();
             $entityManager->persist($contacto);
             $entityManager->flush();
-            return $this->redirectToRoute('ficha_contacto', ["codigo" => $contacto->getId()]);
+            return $this->redirectToRoute('inicio', ["codigo" => $contacto->getId()]);
         }
         return $this->render('nuevo.html.twig', array(
             'formulario' => $formulario->createView()
@@ -114,7 +114,7 @@ final class ContactoController extends AbstractController
     }
 
 
-    #[Route('/contacto/delete/{id}', name:'eliminar_contacto')]
+    #[Route('/contacto/delete/{id}', name:'eliminar_contacto', methods: ['POST'])]
     public function delete(ManagerRegistry $doctrine, $id): Response
     {
         $entityManager = $doctrine->getManager();
@@ -204,16 +204,15 @@ final class ContactoController extends AbstractController
     }
 
 
-    #[Route('/contacto/{codigo}', name: 'ficha_contacto')]
+    #[Route('/contacto/{codigo?1}', name: 'ficha_contacto')]
     public function ficha(ManagerRegistry $doctrine, $codigo): Response{
         $repositorio = $doctrine->getRepository(Contacto::class);
-        // Si no existe el elemento con dicha clave devolvemos null
-        $resultado = ($this->contactos[$codigo] ?? null);
+        $contacto = $repositorio->find($codigo);
 
-        return $this->render('ficha_contacto.html.twig', [
-            "contacto" => $resultado]);
-        
-
-    }
+        if ($contacto){
+            return $this->render('ficha_contacto.html.twig', ['contacto' => $contacto]);
+        }
+        return new Response("<html lang='en'<body>Contacto $codigo no encontrado</body></html>");
+    }  
 
 }
